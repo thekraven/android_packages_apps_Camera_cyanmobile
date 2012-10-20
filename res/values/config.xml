@@ -55,7 +55,7 @@
 	<bool name="isOMAP4Camera">false</bool>
 
         <!-- Autofocus on camcorder start -->
-        <bool name="focusCamcorderAtStart">true</bool>
+        <bool name="focusCamcorderAtStart">false</bool>
          
         <!-- One-stage camera button -->
 	<bool name="isOneStageButton">false</bool>

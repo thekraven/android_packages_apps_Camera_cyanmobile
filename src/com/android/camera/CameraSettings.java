@@ -102,7 +102,7 @@ public class CameraSettings {
     private static boolean mSamsungSpecialSettings; // slow_ae and video_recording_gamma
     private static boolean mIsOMAP4Camera;
 
-    private static boolean sFocusCamcorderAtStart = true;
+    //private static boolean sFocusCamcorderAtStart = true;
 
     public static final String FOCUS_MODE_TOUCH = "touch";
 
@@ -113,8 +113,8 @@ public class CameraSettings {
         mCameraInfo = cameraInfo;
         mCameraId = cameraId;
         mIsOMAP4Camera = mContext.getResources().getBoolean(R.bool.isOMAP4Camera);
-        sFocusCamcorderAtStart = mContext.getResources().getBoolean(
-                R.bool.focusCamcorderAtStart);
+        //sFocusCamcorderAtStart = mContext.getResources().getBoolean(
+        //        R.bool.focusCamcorderAtStart);
     }
 
     public PreferenceGroup getPreferenceGroup(int preferenceRes) {
@@ -633,8 +633,8 @@ public class CameraSettings {
         params.set("preview-frame-rate", "30"); 
     }
 
-    public static boolean isCamcoderFocusAtStart() {
-        return sFocusCamcorderAtStart;
-    }
+    //public static boolean isCamcoderFocusAtStart() {
+      //  return sFocusCamcorderAtStart;
+    //}
 
 }
