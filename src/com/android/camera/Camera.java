@@ -1742,7 +1742,7 @@ public class Camera extends BaseCamera implements View.OnClickListener,
     }
 
     private void doSnap() {
-        int nbBurstShots = Integer.valueOf(prefs.getString("pref_camera_burst_key", "1"));
+        int nbBurstShots = Integer.valueOf(mPreferences.getString(CameraSettings.KEY_BURST_MODE, "1"));
         if (mHeadUpDisplay.collapse()) return;
          // Do not take the picture if there is not enough storage.
         if (mPicturesRemaining <= 0) {

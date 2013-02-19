@@ -81,13 +81,6 @@
                     android:entries="@array/pref_camera_timer_duration_entries"
                     android:entryValues="@array/pref_camera_timer_duration_values"
                     android:defaultValue="10"/>
-            <ListPreference
-                    android:key="pref_camera_burst_key"
-                    android:title="@string/pref_camera_burst_title"
-                    android:summary="@string/pref_camera_burst_mode_summary"
-                    android:entries="@array/pref_camera_burst_mode_entries"
-                    android:entryValues="@array/pref_camera_burst_mode_values"
-                    android:defaultValue="1"/>
 
             <CheckBoxPreference
                     android:key="store_on_external_sd"

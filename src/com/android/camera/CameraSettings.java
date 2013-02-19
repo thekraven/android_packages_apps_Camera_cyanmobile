@@ -55,6 +55,7 @@ public class CameraSettings {
     public static final String KEY_SCENE_MODE = "pref_camera_scenemode_key";
     public static final String KEY_EXPOSURE = "pref_camera_exposure_key";
     public static final String KEY_CAMERA_ID = "pref_camera_id_key";
+    public static final String KEY_BURST_MODE = "pref_camera_burst_key";
     public static final String KEY_ISO = "pref_camera_iso_key";
     public static final String KEY_LENSSHADING = "pref_camera_lensshading_key";
     public static final String KEY_AUTOEXPOSURE = "pref_camera_autoexposure_key";
@@ -178,6 +179,7 @@ public class CameraSettings {
                 (IconListPreference)group.findPreference(KEY_CAMERA_ID);
         ListPreference videoFlashMode =
                 group.findPreference(KEY_VIDEOCAMERA_FLASH_MODE);
+        ListPreference burstMode = group.findPreference(KEY_BURST_MODE);
         ListPreference iso = group.findPreference(KEY_ISO);
         ListPreference lensShade = group.findPreference(KEY_LENSSHADING);
         ListPreference antiBanding = group.findPreference(KEY_ANTIBANDING);
@@ -287,6 +289,7 @@ public class CameraSettings {
              filterUnsupportedOptions(group,
                      autoExposure, mParameters.getSupportedAutoexposure());
          }
+         if (burstMode != null) burstMode.setValueIndex(4);
     }
 
     private boolean checkTouchFocus() {

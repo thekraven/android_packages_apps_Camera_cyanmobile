@@ -55,6 +55,7 @@ public class CameraHeadUpDisplay extends HeadUpDisplay {
 
         ListPreference prefs[] = getListPreferences(group,
                 CameraSettings.KEY_CAPTURE_MODE,
+                CameraSettings.KEY_BURST_MODE,
                 CameraSettings.KEY_FOCUS_MODE,
                 CameraSettings.KEY_EXPOSURE,
                 CameraSettings.KEY_SCENE_MODE,
