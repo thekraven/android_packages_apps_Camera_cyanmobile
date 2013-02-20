@@ -548,4 +548,13 @@
      <string name="pref_camera_autoexposure_value_spotmetering" translatable="false">meter-spot</string>
      <string name="pref_camera_autoexposure_value_matrixmetering" translatable="false">meter-matrix</string>
 
+     <!-- Settings screen, Burst mode title -->
+    <string name="pref_camera_burst_title">Burst mode</string>
+    <string name="pref_camera_burst_mode_summary">Select how much shots for burst mode.\n This only works if Autofocus is disabled!</string>
+    <!-- Settings screen, Burst mode entries -->
+    <string name="pref_camera_burst_entry_off">Off</string>
+    <string name="pref_camera_burst_entry_5">5 shots</string>
+    <string name="pref_camera_burst_entry_10">10 shots</string>
+    <string name="pref_camera_burst_entry_15">15 shots</string>
+    <string name="pref_camera_burst_entry_20">20 shots</string>
 </resources>

@@ -39,7 +39,6 @@ import android.location.Location;
 import android.location.LocationManager;
 import android.location.LocationProvider;
 import android.media.AudioManager;
-import android.media.CameraProfile;
 import android.media.ToneGenerator;
 import android.net.Uri;
 import android.os.Build;
@@ -100,10 +99,9 @@ public class Camera extends BaseCamera implements View.OnClickListener,
 
     private static final int CROP_MSG = 1;
     private static final int FIRST_TIME_INIT = 2;
-    private static final int RESTART_PREVIEW = 3;
-    private static final int CLEAR_SCREEN_DELAY = 4;
-    private static final int SET_CAMERA_PARAMETERS_WHEN_IDLE = 5;
-    private static final int CAMERA_TIMER = 6;
+    private static final int CLEAR_SCREEN_DELAY = 3;
+    private static final int SET_CAMERA_PARAMETERS_WHEN_IDLE = 4;
+    private static final int CAMERA_TIMER = 5;
 
     // The subset of parameters we need to update in setCameraParameters().
     private static final int UPDATE_PARAM_INITIALIZE = 1;
@@ -176,6 +174,16 @@ public class Camera extends BaseCamera implements View.OnClickListener,
     private Uri mSaveUri;
 
     private ImageCapture mImageCapture = null;
+
+    /**
+     * An unpublished intent flag requesting to return as soon as capturing
+     * is completed.
+     *
+     * TODO: consider publishing by moving into MediaStore.	
+     */	
+    private final static String EXTRA_QUICK_CAPTURE =
+            "android.intent.extra.quickCapture";
+
     private TextView mRecordingTimeView;
 
     private boolean mFirstTimeInitialized;
@@ -234,8 +242,21 @@ public class Camera extends BaseCamera implements View.OnClickListener,
     private SharedPreferences prefs;
     private int mImageWidth = 0;
     private int mImageHeight = 0;
+    private boolean mQuickCapture;
 
     private boolean mFocusMute = false;
+
+    // Burst mode
+    private int mBurstShotsDone = 0;
+    private boolean mBurstShotInProgress = false;
+    private boolean mSnapshotOnIdle = false;
+
+    private Runnable mDoSnapRunnable = new Runnable() {
+        @Override
+        public void run() {
+            doSnap();
+        }
+    };
 
     /**
      * This Handler is used to post message back onto the main thread of the
@@ -245,18 +266,6 @@ public class Camera extends BaseCamera implements View.OnClickListener,
         @Override
         public void handleMessage(Message msg) {
             switch (msg.what) {
-                case RESTART_PREVIEW: {
-                    restartPreview();
-                    if (mJpegPictureCallbackTime != 0) {
-                        long now = System.currentTimeMillis();
-                        mJpegCallbackFinishTime = now - mJpegPictureCallbackTime;
-                        Log.v(TAG, "mJpegCallbackFinishTime = "
-                                + mJpegCallbackFinishTime + "ms");
-                        mJpegPictureCallbackTime = 0;
-                    }
-                    break;
-                }
-
                 case CLEAR_SCREEN_DELAY: {
                     getWindow().clearFlags(
                             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
@@ -658,14 +667,7 @@ public class Camera extends BaseCamera implements View.OnClickListener,
 
 
             if (!mIsImageCaptureIntent) {
-                // We want to show the taken picture for a while, so we wait
-                // for at least 1.2 second before restarting the preview.
-                long delay = 1200 - mPictureDisplayedToJpegCallbackTime;
-                if (delay < 0) {
-                    restartPreview();
-                } else {
-                    mHandler.sendEmptyMessageDelayed(RESTART_PREVIEW, delay);
-                }
+                restartPreview();
             }
 
             if(jpegData != null) {
@@ -678,23 +680,22 @@ public class Camera extends BaseCamera implements View.OnClickListener,
             // latency. It's true that someone else could write to the SD card in
             // the mean time and fill it, but that could have happened between the
             // shutter press and saving the JPEG too.
-            calculatePicturesRemaining();
+            checkStorage();
 
-            if (mPicturesRemaining < 1) {
-                updateStorageHint(mPicturesRemaining);
-            }
-
-            if (!mHandler.hasMessages(RESTART_PREVIEW)) {
-                long now = System.currentTimeMillis();
-                mJpegCallbackFinishTime = now - mJpegPictureCallbackTime;
-                Log.v(TAG, "mJpegCallbackFinishTime = "
+            long now = System.currentTimeMillis();
+            mJpegCallbackFinishTime = now - mJpegPictureCallbackTime;
+            Log.v(TAG, "mJpegCallbackFinishTime = "
                         + mJpegCallbackFinishTime + "ms");
-                mJpegPictureCallbackTime = 0;
+            mJpegPictureCallbackTime = 0;
+
+            if (mSnapshotOnIdle && mBurstShotsDone > 0) {
+                mHandler.post(mDoSnapRunnable);
             }
+
             mStatus = IDLE;
             decrementkeypress();
         }
-        }
+    }
 
     private final class AutoFocusCallback
             implements android.hardware.Camera.AutoFocusCallback {
@@ -811,7 +812,11 @@ public class Camera extends BaseCamera implements View.OnClickListener,
                 mThumbController.updateDisplayIfNeeded();
             } else {
                 mCaptureOnlyData = data;
-                showPostCaptureAlert();
+                if (!mQuickCapture) {
+                    showPostCaptureAlert();
+                } else {
+                    doAttach();
+                }
             }
         }
 
@@ -975,6 +980,7 @@ public class Camera extends BaseCamera implements View.OnClickListener,
         mShutterupTime = 0;
 
         mNumberOfCameras = CameraHolder.instance().getNumberOfCameras();
+        mQuickCapture = getIntent().getBooleanExtra(EXTRA_QUICK_CAPTURE, false);
 
         // we need to reset exposure for the preview
         resetExposureCompensation();
@@ -1486,7 +1492,6 @@ public class Camera extends BaseCamera implements View.OnClickListener,
         mImageCapture = null;
 
         // Remove the messages in the event queue.
-        mHandler.removeMessages(RESTART_PREVIEW);
         mHandler.removeMessages(FIRST_TIME_INIT);
 
         super.onPause();
@@ -1737,8 +1742,22 @@ public class Camera extends BaseCamera implements View.OnClickListener,
     }
 
     private void doSnap() {
+        int nbBurstShots = Integer.valueOf(mPreferences.getString(CameraSettings.KEY_BURST_MODE, "1"));
         if (mHeadUpDisplay.collapse()) return;
+         // Do not take the picture if there is not enough storage.
+        if (mPicturesRemaining <= 0) {
+            Log.i(TAG, "Not enough space or storage not ready. remaining=" + mPicturesRemaining);
+            return;
+        }
         if (mTimerMode) return;
+        // If the user wants to do a snapshot while the previous one is still
+        // in progress, remember the fact and do it after we finish the previous
+        // one and re-start the preview.
+        if (mStatus == SNAPSHOT_IN_PROGRESS) {
+            mSnapshotOnIdle = true;
+            return;
+        }
+
         Log.d(TAG, "doSnap: mFocusState=" + mFocusState + " mFocusMode=" + mFocusMode);
         // If the user has half-pressed the shutter and focus is completed, we
         // can take the photo right away. If the focus mode is infinity, we can
@@ -1766,9 +1785,24 @@ public class Camera extends BaseCamera implements View.OnClickListener,
             // Most of the time, the focus key down event will be invoked
             // for some reason. Just ignore.
         }
+
+        mBurstShotsDone++;
+
+        if (mBurstShotsDone == nbBurstShots) {
+            mBurstShotsDone = 0;
+            mSnapshotOnIdle = false;
+        } else if (mSnapshotOnIdle == false) {
+            // queue a new shot until we done all our shots
+            mSnapshotOnIdle = true;
+        }
     }
 
     private void doFocus(boolean pressed) {
+        if (mPausing || mStatus == SNAPSHOT_IN_PROGRESS) return;
+
+        // Do not do focus if there is not enough storage.
+        if (pressed && !canTakePicture()) return;
+
         if (!mTimerMode && pressed) {
             if (mCaptureMode.equals(getResources().getString(
                     R.string.pref_camera_capturemode_entry_timer))) {
@@ -1950,6 +1984,10 @@ public class Camera extends BaseCamera implements View.OnClickListener,
         */
         mParameters = mCameraDevice.getParameters();
         mZoomMax = mParameters.getMaxZoom();
+
+        if (mSnapshotOnIdle && mBurstShotsDone > 0) {
+            mHandler.post(mDoSnapRunnable);
+        }
     }
 
     private void stopPreview() {
@@ -2089,11 +2127,6 @@ public class Camera extends BaseCamera implements View.OnClickListener,
                 CameraSettings.KEY_JPEG_QUALITY,
                 getString(R.string.pref_camera_jpegquality_default));
         mParameters.setJpegQuality(JpegEncodingQualityMappings.getQualityNumber(mCameraId, jpegQuality));
-
-
-
-        // For the following settings, we need to check if the settings are
-        // still supported by latest driver, if not, ignore the settings.
 
          // Set ISO parameter.
         String iso = mPreferences.getString(
@@ -2446,9 +2479,6 @@ public class Camera extends BaseCamera implements View.OnClickListener,
         stopPreview();
         closeCamera();
 
-        // Remove the messages in the event queue.
-        mHandler.removeMessages(RESTART_PREVIEW);
-
         // Reset variables
         mJpegPictureCallbackTime = 0;
         mZoomValue = 0;
@@ -2552,33 +2582,5 @@ public class Camera extends BaseCamera implements View.OnClickListener,
                 getString(R.string.confirm_restore_title),
                 getString(R.string.confirm_restore_message),
                 runnable);
-    }
-}
-
-/*
- * Provide a mapping for Jpeg encoding quality levels
- * from String representation to numeric representation.
- */
-class JpegEncodingQualityMappings {
-    private static final String TAG = "JpegEncodingQualityMappings";
-    private static final int DEFAULT_QUALITY = 85;
-    private static HashMap<String, Integer> mHashMap =
-            new HashMap<String, Integer>();
-
-    static {
-        mHashMap.put("normal",    CameraProfile.QUALITY_LOW);
-        mHashMap.put("fine",      CameraProfile.QUALITY_MEDIUM);
-        mHashMap.put("superfine", CameraProfile.QUALITY_HIGH);
-    }
-
-    // Retrieve and return the Jpeg encoding quality number
-    // for the given quality level.
-    public static int getQualityNumber(int mCameraId, String jpegQuality) {
-        Integer quality = mHashMap.get(jpegQuality);
-        if (quality == null) {
-            Log.w(TAG, "Unknown Jpeg quality: " + jpegQuality);
-            return DEFAULT_QUALITY;
-        }
-        return CameraProfile.getJpegEncodingQualityParameter(mCameraId, quality.intValue());
     }
 }
