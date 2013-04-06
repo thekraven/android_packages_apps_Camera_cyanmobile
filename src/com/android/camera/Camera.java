@@ -1762,28 +1762,32 @@ public class Camera extends BaseCamera implements View.OnClickListener,
         // If the user has half-pressed the shutter and focus is completed, we
         // can take the photo right away. If the focus mode is infinity, we can
         // also take the photo.
-        if (mFocusMode.equals(Parameters.FOCUS_MODE_INFINITY)
+        if (nbBurstShots == 1) {
+            if (mFocusMode.equals(Parameters.FOCUS_MODE_INFINITY)
                 || mFocusMode.equals(Parameters.FOCUS_MODE_FIXED)
                 || mFocusMode.equals(Parameters.FOCUS_MODE_EDOF)
                 || mFocusMode.equals(CameraSettings.FOCUS_MODE_TOUCH)
                 || (mFocusState == FOCUS_SUCCESS
                 || mFocusState == FOCUS_FAIL)) {
-            mImageCapture.onSnap();
-        } else if (mFocusState == FOCUSING) {
-            // Half pressing the shutter (i.e. the focus button event) will
-            // already have requested AF for us, so just request capture on
-            // focus here.
-            mFocusState = FOCUSING_SNAP_ON_FINISH;
-        } else if (mFocusState == FOCUS_NOT_STARTED) {
-            // Special case: some devices have a one-stage-only camera button.
-            // In those cases, a simple push has to do the trick.
-            if (getResources().getBoolean(R.bool.isOneStageButton)) {
-                doFocus(true);
+                mImageCapture.onSnap();
+            } else if (mFocusState == FOCUSING) {
+                // Half pressing the shutter (i.e. the focus button event) will
+                // already have requested AF for us, so just request capture on
+                // focus here.
                 mFocusState = FOCUSING_SNAP_ON_FINISH;
-            }
+            } else if (mFocusState == FOCUS_NOT_STARTED) {
+                // Special case: some devices have a one-stage-only camera button.
+                // In those cases, a simple push has to do the trick.
+                if (getResources().getBoolean(R.bool.isOneStageButton)) {
+                    doFocus(true);
+                    mFocusState = FOCUSING_SNAP_ON_FINISH;
+                }
 	
-            // Most of the time, the focus key down event will be invoked
-            // for some reason. Just ignore.
+                // Most of the time, the focus key down event will be invoked
+                // for some reason. Just ignore.
+            }
+        } else {
+            mImageCapture.onSnap();
         }
 
         mBurstShotsDone++;
